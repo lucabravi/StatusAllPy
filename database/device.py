@@ -17,6 +17,7 @@ class Device(Base):
     group = Column(String, nullable=False, default='client')
     status = Column(Boolean, nullable=False, default=False)
     last_update = Column(DateTime, nullable=True)
+    last_changed = Column(DateTime, nullable=True)
 
     @property
     def name(self):
@@ -76,7 +77,7 @@ class Device(Base):
             conn.session.query(
                 Service.device_id,
                 Service.name,
-                Service.status,
+                Service._status,
                 Service.last_update,
                 Service.last_changed
             )
@@ -113,15 +114,18 @@ class Device(Base):
 
     def to_dict(self, full_details=False):
         ret = {
+            'id': self.id,
             'ip': self.ip,
             'name': self.name,
             'group': self.group,
             'last_update': self.last_update,
+            'last_changed': self.last_changed,
             'status': self.status,
         }
         if full_details:
-            device_services = [x.to_dict() for x in Service.get_services_by_device(device_id=self.id)]
-            ret['services'] = device_services
+            temp = Service.get_services_by_device(device_id=self.id)
+            services = [x.to_dict() for x in temp]
+            ret['services'] = services
 
         return ret
 

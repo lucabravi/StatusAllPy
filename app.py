@@ -19,7 +19,7 @@ sys.path.append(cur_dir)
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.WARNING)
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static',)
 
 scheduler = BackgroundScheduler()
 
@@ -39,7 +39,7 @@ def initialize_scheduler():
 def init_app(app):
     with app.app_context():
         from database import init_db
-        init_db(app=app)
+        init_db(app=app, echo=False)
         from routes import add_app_routes
         add_app_routes(app)
 

@@ -11,9 +11,10 @@ Base = conn.Model
 logger = logging.getLogger(__name__)
 
 
-def init_db(app):
+def init_db(app, echo=False):
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///ping_results.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ECHO'] = echo
     conn.init_app(app)
 
     Base.metadata.create_all(conn.engine)
