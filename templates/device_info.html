@@ -1,51 +1,60 @@
 <div class="card bg-light mt-3 border-dark" style="width: 50rem">
     <h3 class="card-header text-center border-dark">{{ device.name }}</h3>
-    <ul class="list-group list-group-flush ">
-        <li class="list-group-item">
-            Group: {{ device.group }}
-        </li>
-        <li class="list-group-item">
-            IP: {{ device.ip }}
-        </li>
-        <li class="list-group-item">
-            Name: {{ device.name }}
-        </li>
-    </ul>
-    <ul class="list-group list-group-flush border-dark">
-        <li class="list-group-item">
-            Status: {{ ('<button class="btn btn-success btn-sm py-0">Online</button>' if device.status else '<button class="btn btn-danger btn-sm py-0">Offline</button>') | safe }}
-        </li>
-        <li class="list-group-item">
-            Last Update: {{ device.last_update.strftime('%Y-%m-%d %H:%M:%S') if device.last_update else 'N/A' }}
-        </li>
-        <li class="list-group-item">
-            Last Status
-            Change: {{ device.last_changed.strftime('%Y-%m-%d %H:%M:%S') if device.last_changed else 'N/A' }}
-        </li>
-    </ul>
-    <ul class="list-group list-group-flush border-dark">
-        {% for service in device.services %}
+    <div class="card-body p-0 bg-white">
+        <h5 class="card-title text-center border-dark py-2 mb-0">INFO</h5>
+        <ul class="list-group list-group-flush border-dark border-top">
             <li class="list-group-item">
-                <div class="row">
-                    <div class="col-7">
-                        {{ service.name }}
-                        {% if service.name == 'DockerContainer' %}
-                            - {{ service.container_name | title }}
-                        {% endif %}
-                    </div>
-                    <div class="col-4">
-                        {{ service.last_update.strftime('%Y-%m-%d %H:%M:%S') | safe }}
-                    </div>
-                    <div class="col-1">
-                        {{ ('<button class="btn btn-success btn-sm py-0">OK</button>' if service.status else '<button class="btn btn-danger btn-sm py-0">OK</button>') | safe }}
-                    </div>
-                </div>
-
+                Name: {{ device.name }}
             </li>
+            <li class="list-group-item">
+                IP: {{ device.ip }}
+            </li>
+            <li class="list-group-item">
+                Group: {{ device.group }}
+            </li>
+        </ul>
+        <h5 class="card-title text-center border-dark border-top py-2 mb-0 ">STATUS</h5>
+        <ul class="list-group list-group-flush border-dark border-top">
+            <li class="list-group-item">
+                Status: {{ ('<button class="btn btn-success btn-sm py-0">Online</button>' if device.status else '<button class="btn btn-danger btn-sm py-0">Offline</button>') | safe }}
+            </li>
+            <li class="list-group-item">
+                Last Update: {{ device.last_update.strftime('%Y-%m-%d %H:%M:%S') if device.last_update else 'N/A' }}
+            </li>
+            <li class="list-group-item">
+                Last Status
+                Change: {{ device.last_changed.strftime('%Y-%m-%d %H:%M:%S') if device.last_changed else 'N/A' }}
+            </li>
+        </ul>
+        <h5 class="card-title text-center border-dark border-top py-2 mb-0">SERVICES</h5>
+        <ul class="list-group list-group-flush border-dark border-top">
+            {% for service in device.services %}
+                <li class="list-group-item">
+                    <div class="row">
+                        <div class="col-7">
+                            {{ service.name|replace('Service', ' ') }}
+                            {% if service.name == 'DockerService' %}
+                                | {{ service.container_name }}
+                            {% endif %}
+
+                        </div>
+                        <div class="col-4">
+                            {{ service.last_update.strftime('%Y-%m-%d %H:%M:%S') | safe }}
+                        </div>
+                        <div class="col-1">
+                            {% if service.status %}
+                                <button class="btn btn-success btn-sm py-0">OK</button>
+                            {% else %}
+                                <button class="btn btn-danger btn-sm py-0">KO</button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </li>
 
 
 
-        {% endfor %}
-    </ul>
-
+            {% endfor %}
+        </ul>
+    </div>
 </div>

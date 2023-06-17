@@ -1,6 +1,11 @@
 import datetime
 import json
 import logging
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Query
@@ -12,7 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 def init_db(app, echo=False):
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///ping_results.db'
+    app.config["DB_USER"] = os.environ.get("DB_USER")
+    app.config["DB_PASSWORD"] = os.environ.get("DB_PASSWORD")
+    app.config["DB_HOST"] = os.environ.get("DB_HOST")
+    app.config["DB_PORT"] = os.environ.get("DB_PORT")
+    app.config["DB_NAME"] = os.environ.get("DB_NAME")
+
+    app.config[
+        'SQLALCHEMY_DATABASE_URI'] = f'mysql://{app.config["DB_USER"]}:{app.config["DB_PASSWORD"]}@{app.config["DB_HOST"]}:{app.config["DB_PORT"]}/{app.config["DB_NAME"]}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ECHO'] = echo
     conn.init_app(app)
@@ -64,7 +76,7 @@ def query_to_dict(query, key=None):
 
 
 from .device import Device
-from .services import Service, PingService, DockerContainer, DiskSpace
+from .services import Service, PingService, DockerService, DiskService
 
 import database.data_init
 
@@ -73,7 +85,7 @@ def preload_data():
     for group in data_init.devices:
         for device in data_init.devices[group]:
             if Device.query.filter_by(ip=device[0]).first() is None:
-                new_device = Device(ip=device[0], name=device[1], group=group, last_update=None)
+                new_device = Device(ip=device[0], _name=device[1], group=group, last_update=None)
                 conn.session.add(new_device)
     conn.session.commit()
 

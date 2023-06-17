@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% block body %}
-    <div>
-        <h1 class="my-3 text-center" id="title">
-            DEVICE INFO
-        </h1>
-        <h5 id="last-refresh" class="text-center">LAST REFRESH: </h5>
+    <div class="container col-8 mt-3">
+        <div>
+            <h1 class="my-3 text-center" id="title">
+                <button class="btn btn-secondary btn-lg py-0" onclick="window.history.back()"> Go Back <i
+                        class="fas fa-arrow-circle-left "></i></button>
+                DEVICE INFO
+            </h1>
+            </h1>
+            <h5 id="last-refresh" class="text-center">LAST REFRESH: </h5>
+        </div>
+        <div id="device-info" class="justify-content-center d-flex"
+             hx-get="{{ url_for('device_info', device_id=device.id) }}" hx-trigger="every 5s"
+             hx-target="#device-info">
+            {% include "device_info.html" %}
+        </div>
     </div>
-    <div id="device-info" class="justify-content-center d-flex"
-         hx-get="{{ url_for('device_info', device_id=device.id) }}" hx-trigger="every 5s"
-         hx-target="#device-info">
-        {% include "device_info.html" %}
-    </div>
+{% endblock %}
 
+{% block scripts %}
     <script>
-        function get_formatted_date() {
-            var cDate = new Date();
-            var date = cDate.getFullYear() + '-' + (cDate.getMonth() + 1).toString().padStart(2, '0') + '-' + cDate.getDate().toString().padStart(2, '0');
-            var time = cDate.getHours().toString().padStart(2, '0') + ":" + cDate.getMinutes() .toString().padStart(2, '0')+ ":" + cDate.getSeconds().toString().padStart(2, '0');
-            return date + ' ' + time;
-        }
-
         document.getElementById('last-refresh').innerText = 'LAST REFRESH: ' + get_formatted_date();
         htmx.on("htmx:afterRequest", function (evt) {
             // Aggiorna il timestamp dell'ultimo aggiornamento ogni volta che i dati vengono aggiornati

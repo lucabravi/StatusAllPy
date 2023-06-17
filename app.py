@@ -3,6 +3,9 @@ import sys
 import logging
 import threading
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -17,9 +20,10 @@ cur_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(cur_dir)
 sys.path.append(cur_dir)
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.WARNING)
+logging_level = os.environ.get("LOGGING_LEVEL", "INFO")
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging_level)
 logger = logging.getLogger(__name__)
-app = Flask(__name__, static_folder='static',)
+app = Flask(__name__, static_folder='static', )
 
 scheduler = BackgroundScheduler()
 

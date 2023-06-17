@@ -2,7 +2,7 @@ import asyncio
 import os
 
 from . import *
-from database import get_or_create, PingService
+from database import get_or_create, Device, PingService
 
 
 # from pythonping import ping
@@ -10,45 +10,46 @@ from database import get_or_create, PingService
 
 async def ping_device(device):
     # while True:
+
     try:
+
         if platform.system() == 'Windows':
             process = await asyncio.create_subprocess_exec('ping', '-n', '1', device.ip, stdout=PIPE, stderr=PIPE,
                                                            text=False)
         else:
-            process = await asyncio.create_subprocess_exec('ping', '-c', '1', '-W', '0.3', device.ip,
+            process = await asyncio.create_subprocess_exec('ping', '-c', '1', '-W', '0.5', device.ip,
                                                            stdout=PIPE, stderr=PIPE, text=False)
         stdout, stderr = await process.communicate()
-        ping_ms = extract_ping_time(str(stdout))
         status = process.returncode == 0
+        ping_ms = extract_ping_time(str(stdout)) if status else 0
+
         # ping_status = ping(device.ip, count=1, timeout=0.3, verbose=False)
         # print(ping_status)
 
         now = datetime.datetime.now()
         # device = Device.query.get(device.id)
+
         PingService.update_status(device=device, status=status, response_time=ping_ms)
 
         if status:
-            logger.info(f"{device.name}: {status}")
+            logger.debug(f"{device.name} | ok | {ping_ms}ms")
         else:
-            logger.info(f"{device.name}: {status}")
+            logger.debug(f"{device.name} | ko")
 
     except Exception as e:
-        logger.error(e)
-
-        # finally:
-        #     await asyncio.sleep(30)
+        logger.error(f'ping_device: {e}')
 
 
 def extract_ping_time(data_string) -> int:
-    start_marker = ", time "
-    end_marker = "ms"
+    start_marker = "time="
+    end_marker = "ms\\n\\n"
 
     try:
         start_index = data_string.index(start_marker) + len(start_marker)
         end_index = data_string.index(end_marker, start_index)
         ping_time = data_string[start_index:end_index]
-        return int(ping_time)
-    except ValueError:
+        return int(float(ping_time))
+    except Exception as e:
         return -1
 
 

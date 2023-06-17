@@ -2,8 +2,7 @@ import datetime
 from operator import and_
 
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index, desc, func
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, selectin_polymorphic, with_polymorphic
+from sqlalchemy.orm import relationship, with_polymorphic
 
 from . import conn, Base, get_or_create
 
@@ -13,23 +12,23 @@ class Service(Base):
 
     id = Column(Integer, primary_key=True)
     device_id = Column(Integer, ForeignKey('devices.id'))
-    name = Column(String)
-    subname = Column(String)
+    name = Column(String(30))
+    subname = Column(String(30))
     _status = Column(Boolean)
     last_update = Column(DateTime, nullable=False, default=datetime.datetime.now)
     last_changed = Column(DateTime, nullable=False, default=datetime.datetime.now)
 
     device = relationship('Device', backref='services')
-    indice_servizi = Index(device_id, last_update)
+
+    __table_args__ = (
+        Index('idx_deviceid_name_subname_lastupdate', device_id, name, subname, last_update),
+    )
 
     __mapper_args__ = {
         'polymorphic_identity': 'service',
         "with_polymorphic": "*",
         'polymorphic_on': name,
     }
-
-    def __repr__(self):
-        return f"<Service(name='{self.name}', status='{self._status}')>"
 
     def _analyze_status(self, **kwargs):
         self._set_status(kwargs['status'])
@@ -60,10 +59,18 @@ class Service(Base):
                 device.last_changed = datetime.datetime.now()
             device.status = kwargs['status']
 
-        service = get_or_create(conn.session, cls, device=device, name=cls.__name__, **kwargs)
-        service._analyze_status(**kwargs)
-        conn.session.add(device)
-        conn.session.commit()
+        try:
+            service = get_or_create(conn.session, cls, device=device, name=cls.__name__, **kwargs)
+            with conn.session.begin():
+                service._analyze_status(**kwargs)
+                conn.session.add(device)
+                conn.session.commit()
+        except:
+            conn.session.rollback()
+            raise
+
+        # finally:
+        #     conn.session.close()
 
     @classmethod
     def get_ping_status(cls, device_ip):
@@ -79,7 +86,7 @@ class Service(Base):
 
     @classmethod
     def get_services_by_device(cls, device_id):
-        all_kind_services = with_polymorphic(Service, [PingService, DockerContainer])
+        # all_kind_services = with_polymorphic(Service, [PingService, DockerContainer])
 
         subquery = (
             conn.session.query(Service.name, Service.subname, func.max(Service.last_update).label('max_last_update'))
@@ -88,7 +95,7 @@ class Service(Base):
             .subquery()
         )
 
-        result = conn.session.query(all_kind_services) \
+        result = conn.session.query(Service) \
             .join(subquery, and_(Service.name == subquery.c.name, Service.last_update == subquery.c.max_last_update)) \
             .filter(Service.device_id == device_id)
 
@@ -98,10 +105,13 @@ class Service(Base):
         return {
             'name': self.name,
             'subname': self.subname,
-            'status': self._status,
+            'status': self.status,
             'last_update': self.last_update,
             'last_changed': self.last_changed
         }
+
+    def __repr__(self):
+        return f"<Service(name='{self.name}', status='{self._status}')>"
 
 
 class PingService(Service):
@@ -114,26 +124,26 @@ class PingService(Service):
         'polymorphic_identity': 'PingService'
     }
 
-    def __repr__(self):
-        return f"<PingService(name='{self.name}', status='{self._status}', target_ip='{self.target_ip}')>"
-
     def to_dict(self):
         ret = super().to_dict()
         ret['response_time'] = self.response_time
         return ret
 
+    def __repr__(self):
+        return f"<PingService(name='{self.name}', status='{self._status}', target_ip='{self.device.ip}')>"
 
-class DockerContainer(Service):
+
+class DockerService(Service):
     __tablename__ = 'docker_containers'
     id = Column(Integer, ForeignKey('services.id'), primary_key=True)
     created_at = Column(DateTime, nullable=True)
     started_at = Column(DateTime, nullable=True)
-    image_id = Column(String)
+    image_id = Column(String(255), nullable=True)
 
     service = relationship('Service', backref='docker_container_services')
 
     __mapper_args__ = {
-        'polymorphic_identity': 'DockerContainer'
+        'polymorphic_identity': 'DockerService'
     }
 
     @property
@@ -148,9 +158,6 @@ class DockerContainer(Service):
         uptime_minutes = (datetime.datetime.now() - self.started_at).total_seconds() / 60
         self._set_status(uptime_minutes >= 5)
 
-    def __repr__(self):
-        return f"<DockerContainer(name='{self.name}', status='{self._status}', container_name='{self.container_name}')>"
-
     def to_dict(self):
         ret = super().to_dict()
         ret['container_name'] = ret.pop('subname')
@@ -159,27 +166,30 @@ class DockerContainer(Service):
         ret['image_id'] = self.image_id
         return ret
 
+    def __repr__(self):
+        return f"<DockerService(name='{self.name}', status='{self._status}', container_name='{self.container_name}')>"
 
-class DiskSpace(Service):
+
+class DiskService(Service):
     __tablename__ = 'disk_space'
     id = Column(Integer, ForeignKey('services.id'), primary_key=True)
-    disk_name = Column(String)
+    disk_name = Column(String(30), nullable=False)
     free_space = Column(Integer)
 
     service = relationship('Service', backref='disk_space_services')
 
     __mapper_args__ = {
-        'polymorphic_identity': 'DiskSpace'
+        'polymorphic_identity': 'DiskService'
     }
-
-    def __repr__(self):
-        return f"<DiskSpace(name='{self.name}', status='{self._status}', disk_name='{self.disk_name}', free_space='{self.free_space}')>"
 
     def to_dict(self):
         ret = super().to_dict()
         ret['disk_name'] = self.disk_name
         ret['free_space'] = self.free_space
         return ret
+
+    def __repr__(self):
+        return f"<DiskService(name='{self.name}', status='{self._status}', disk_name='{self.disk_name}', free_space='{self.free_space}')>"
 
 # class CustomService(Service):
 #     __tablename__ = 'custom_services'

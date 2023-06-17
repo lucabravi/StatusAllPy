@@ -1,8 +1,19 @@
 {% extends "base.html" %}
 {% block body %}
-    <h1 class="my-3 text-center" id="title">Ping Status | <small id="summary-count"></small></h1>
+
+    <h1 class="my-3 text-center" id="title">Ping Status <small id="summary-count"></small></h1>
+    <h5 id="last-refresh" class="text-center">LAST REFRESH: </h5>
     <!-- Container per le cards dei gruppi -->
+
+    <div id="groups-container" class="row justify-content-center"></div>
+
+{% endblock %}
+
+{% block scripts %}
+
     <script>
+        const last_refresh = document.getElementById('last-refresh');
+
         // Funzione per aggiornare i dati di ping tramite AJAX
         function updatePingStatus() {
             axios.get('{{ url_for('api_ping_status') }}', {timeout: 2000})
@@ -10,25 +21,28 @@
                     var data = response.data;
                     var devices = data['devices'];
                     var groups = data['groups'];
+                    var services = data['services']
                     updateSummaryCount(groups);
                     var groupsContainer = document.getElementById('groups-container');
                     groupsContainer.innerHTML = '';
                     // Aggiungi le card per ogni gruppo
                     for (var i = 0; i < groups.length; i++) {
                         var group = groups[i];
-                        var groupCard = createGroupCard(group, devices[group.name]);
+                        var groupCard = createGroupCard(group, devices[group.name], services[group.name]);
                         groupsContainer.appendChild(groupCard);
                     }
+                    last_refresh.innerText = 'LAST REFRESH: ' + get_formatted_date();
                 })
                 .catch(function (error) {
                     console.error(error);
                 });
         }
 
-        function createGroupCard(group, devices) {
+        function createGroupCard(group, devices, services) {
             var card = document.createElement('div');
             card.id = 'group_' + group.name;
-            card.className = 'card col-3';
+            card.className = 'card mx-4';
+            card.style.width = '18rem';
 
             var cardHeader = document.createElement('div');
             cardHeader.className = 'card-header';
@@ -47,38 +61,66 @@
             card.appendChild(cardHeader);
 
             var cardBody = document.createElement('div');
-            cardBody.className = 'card-body';
+            cardBody.className = 'card-body px-0';
 
-            for (var i = 0; i < devices.length; i++) {
-                var device = devices[i];
-                var deviceRow = createDeviceRow(device);
+            for (const [key, device] of Object.entries(devices)) {
+                var deviceRow = createDeviceRow(device, services[key]);
                 cardBody.appendChild(deviceRow);
             }
+
 
             card.appendChild(cardBody);
 
             return card;
         }
 
-        function createDeviceRow(device) {
-            var deviceRow = document.createElement('div');
-            deviceRow.className = 'row align-items-center border-bottom border-top';
+        function createDeviceRow(device, services) {
+            var deviceRow = document.createElement('a');
+            deviceRow.id = 'device_' + device.id;
+            deviceRow.className = 'row align-items-center border-bottom border-top px-3';
+            deviceRow.href = '{{ url_for('device',device_id=-1) }}'.replace('-1', device.id);
 
-            var deviceName = document.createElement('a');
-            deviceName.className = 'col-8';
+            var deviceName = document.createElement('div');
+            deviceName.className = services !== undefined ? 'col-8' : 'col-10';
             deviceName.textContent = device.name;
-            deviceName.href = '{{ url_for('device',device_id=-1) }}'.replace('-1', device.id);
+
 
             var deviceStatus = document.createElement('div');
-            deviceStatus.className = 'col-4 border-end text-end';
+            deviceStatus.className = `col-2 text-end`;
 
             var statusButton = document.createElement('button');
             statusButton.className = 'btn btn-sm py-0';
             statusButton.classList.add(device.status ? 'btn-success' : 'btn-danger');
             statusButton.textContent = device.status ? 'ON' : 'OFF';
 
+
+            if (services !== undefined) {
+                var serviceStatus = document.createElement('div');
+                serviceStatus.className = 'col-2 text-end';
+
+                var serviceButton = document.createElement('button');
+                serviceButton.className = 'btn btn-sm py-0';
+
+                let totalServices = services.length;
+                let servicesOk = 0;
+                for (const [key, service] of Object.entries(services)) {
+                    if (service.status) {
+                        servicesOk += 1;
+                    }
+                }
+                serviceButton.classList.add(totalServices === servicesOk ? 'btn-success' : 'btn-danger');
+                serviceButton.textContent = `${servicesOk}/${totalServices}`;
+
+                serviceStatus.append(serviceButton)
+            }
+
+
             deviceStatus.appendChild(statusButton);
+
             deviceRow.appendChild(deviceName);
+              if (services !== undefined) {
+                deviceRow.appendChild(serviceStatus);
+            }
             deviceRow.appendChild(deviceStatus);
 
             return deviceRow;
@@ -97,7 +139,7 @@
 
             var summaryCount = document.getElementById('summary-count');
             if (summaryCount) {
-                summaryCount.innerHTML = `<span class="text-success"> ${onlineCount} ON </span> | `
+                summaryCount.innerHTML = `| <span class="text-success"> ${onlineCount} ON </span> | `
                     + `<span class="text-danger"> ${offlineCount} OFF </span>`;
             }
         }
@@ -110,6 +152,5 @@
             updatePingStatus();
         });
     </script>
-    <div id="groups-container" class="row"></div>
 
 {% endblock %}

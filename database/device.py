@@ -1,20 +1,16 @@
-import json
-
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, func, case, select, text, and_
-from sqlalchemy.orm import aliased
-
-from database import conn, Base, query_to_dict
-from .services import Service, PingService, DockerContainer, DiskSpace
-
 import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, func, case, and_
+
+from database import conn, Base, logger
+from .services import Service
 
 
 class Device(Base):
     __tablename__ = 'devices'
     id = Column(Integer, primary_key=True)
-    ip = Column(String, nullable=False, unique=True)
-    _name = Column(String, nullable=False, unique=True)
-    group = Column(String, nullable=False, default='client')
+    ip = Column(String(15), nullable=False, unique=True)
+    _name = Column(String(30), nullable=False, unique=True)
+    group = Column(String(30), nullable=False, default='client')
     status = Column(Boolean, nullable=False, default=False)
     last_update = Column(DateTime, nullable=True)
     last_changed = Column(DateTime, nullable=True)
@@ -46,7 +42,7 @@ class Device(Base):
         #     ) s ON d.id = s.device_id
         #     GROUP BY d."group"
         # ''')
-        # res = conn.session.execute(query)
+        # res = conn..execute(query)
         res = conn.session.query(
             Device.group,
             func.count(Device.id),
@@ -66,50 +62,58 @@ class Device(Base):
             conn.session.query(
                 Service.device_id.label('device_id'),
                 Service.name.label('name'),
+                Service.subname.label('subname'),
                 func.max(Service.last_update).label('max_last_update')
             )
             .join(Device, Device.id == Service.device_id)
-            .group_by(Device.id, Service.name)
+            .group_by(Device.id, Service.name, Service.subname)
             .subquery()
         )
 
-        query = (
+        services = (
             conn.session.query(
-                Service.device_id,
-                Service.name,
-                Service._status,
-                Service.last_update,
-                Service.last_changed
+                Service
             )
             .join(subquery, and_(
                 Service.name == subquery.c.name,
+                # Service.subname == subquery.c.subname,
                 Service.last_update == subquery.c.max_last_update,
                 Service.device_id == subquery.c.device_id,
                 subquery.c.name != 'PingService'
             ))
-            .group_by(Service.device_id, Service.name)
-        )
+            .group_by(Service.device_id, Service.name, Service.subname)
+        ).all()
 
-        results = query_to_dict(query, key='device_id')
-        return results
-
-        # json_results = {}
-        #
-        # # Iterazione sui risultati per trasformarli in dizionari
-        # for result in results:
-        #     json_results[result.device_id] = {
-        #         'name': result.name,
-        #         'status': result.status,
-        #         'last_update': result.last_update.strftime('%Y-%m-%d %H:%M:%S'),  # Conversione del datetime in stringa
-        #         'last_changed': result.last_changed.strftime('%Y-%m-%d %H:%M:%S')
-        #     }
-        #
-        # return json_results
-
-    @staticmethod
-    def get_devices_by_group():
         groups = conn.session.query(Device.group).distinct()
-        devices = {g[0]: [d.to_dict() for d in conn.session.query(Device).filter_by(group=g[0])] for g in groups}
+        services_dict = {
+            g[0]: {service.device_id: [] for service in services if service.device.group == g[0]}
+            for g in groups
+        }
+
+        for service in services:
+            services_dict[service.device.group][service.device_id].append(service.to_dict())
+
+        return services_dict
+
+    @classmethod
+    def get_devices_by_group(cls, with_services=False):
+        groups = conn.session.query(Device.group).distinct()
+        devices = {g[0]: {d.id: d.to_dict() for d in conn.session.query(Device).filter_by(group=g[0])} for g in groups}
+
+        # devices = {
+        #     g[0]: {
+        #         device.id: {
+        #             'info': device.to_dict()
+        #         }
+        #         for device in conn.session.query(Device).filter_by(group=g[0])}
+        #     for g in groups
+        # }
+        # services = cls.get_services_statistics().all()
+        # for service in services:
+        #     if 'services' not in devices[service.device.group][service.device_id]:
+        #         devices[service.device.group][service.device_id]['services'] = []
+        #     devices[service.device.group][service.device_id]['services'].append(service.to_dict())
+
         return devices
 
     def to_dict(self, full_details=False):

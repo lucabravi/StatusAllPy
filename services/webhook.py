@@ -20,7 +20,7 @@ def handle_container_data(data, ip_address):
             created_at = datetime.datetime.strptime(created_at[:19], "%Y-%m-%dT%H:%M:%S")
 
             device = database.get_or_create(database.conn.session, database.Device, ip=ip_address, group='SERVER')
-            database.services.DockerContainer.update_status(
+            database.services.DockerService.update_status(
                 device=device,
                 container_name=container_name,
                 image_id=image_id,
@@ -31,5 +31,5 @@ def handle_container_data(data, ip_address):
         return True
 
     except Exception as e:
-        logger.error(e)
+        logger.error(f'handle_container_data: {e}')
         return False
