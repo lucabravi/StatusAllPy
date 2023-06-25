@@ -8,7 +8,7 @@ from .services import Service
 class Device(Base):
     __tablename__ = 'devices'
     id = Column(Integer, primary_key=True)
-    ip = Column(String(15), nullable=False, unique=True)
+    ip = Column(String(15), nullable=True, unique=True)
     _name = Column(String(30), nullable=False, unique=True)
     group = Column(String(30), nullable=False, default='client')
     status = Column(Boolean, nullable=False, default=False)
@@ -81,7 +81,7 @@ class Device(Base):
                 Service.device_id == subquery.c.device_id,
                 subquery.c.name != 'PingService'
             ))
-            .group_by(Service.device_id, Service.name, Service.subname)
+            .group_by(Service.id, Service.device_id, Service.name, Service.subname)
         ).all()
 
         groups = conn.session.query(Device.group).distinct()

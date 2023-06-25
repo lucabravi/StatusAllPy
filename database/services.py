@@ -11,7 +11,7 @@ class Service(Base):
     __tablename__ = 'services'
 
     id = Column(Integer, primary_key=True)
-    device_id = Column(Integer, ForeignKey('devices.id'))
+    device_id = Column(Integer, ForeignKey('devices.id', ondelete='CASCADE'), nullable=False)
     name = Column(String(30))
     subname = Column(String(30))
     _status = Column(Boolean)
@@ -116,7 +116,7 @@ class Service(Base):
 
 class PingService(Service):
     __tablename__ = 'ping_services'
-    id = Column(Integer, ForeignKey('services.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('services.id',ondelete='CASCADE'), primary_key=True)
     response_time = Column(Integer, default=-1, nullable=False)
 
     __mapper_args__ = {
@@ -135,7 +135,7 @@ class PingService(Service):
 
 class DockerService(Service):
     __tablename__ = 'docker_containers'
-    id = Column(Integer, ForeignKey('services.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('services.id', ondelete='CASCADE'), primary_key=True)
     created_at = Column(DateTime, nullable=True)
     started_at = Column(DateTime, nullable=True)
     image_id = Column(String(255), nullable=True)
@@ -172,7 +172,7 @@ class DockerService(Service):
 
 class DiskService(Service):
     __tablename__ = 'disk_space'
-    id = Column(Integer, ForeignKey('services.id'), primary_key=True)
+    id = Column(Integer, ForeignKey('services.id', ondelete='CASCADE'), primary_key=True)
     disk_name = Column(String(30), nullable=False)
     free_space = Column(Integer)
 
