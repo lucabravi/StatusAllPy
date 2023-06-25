@@ -94,8 +94,8 @@ def delete_old_records():
     logger.info('DB: Cleaning up old records')
 
     threshold_date = datetime.datetime.now() - datetime.timedelta(days=7)
-    records_to_delete = Device.query.filter(Device.last_update < threshold_date)
-    records_to_delete.delete()
+    # records_to_delete = Device.query.filter(Device.last_update < threshold_date)
+    # records_to_delete.delete()
     records_to_delete = Service.query.filter(Service.last_update < threshold_date)
     records_to_delete.delete()
 
