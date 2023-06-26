@@ -50,6 +50,7 @@ def extract_ping_time(data_string) -> int:
         ping_time = data_string[start_index:end_index]
         return int(float(ping_time))
     except Exception as e:
+        logger.error(f'Ping | extract_ping_time | {e}')
         return -1
 
 
