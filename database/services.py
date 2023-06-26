@@ -53,7 +53,9 @@ class Service(Base):
 
     @classmethod
     def update_status(cls, device, *args, **kwargs):
-        device.last_update = kwargs["last_update"] if "last_udpate" in kwargs else datetime.datetime.now()
+        last_update = kwargs.pop("last_update") if "last_update" in kwargs else datetime.datetime.now()
+
+        device.last_update = last_update
 
         try:
             service = get_or_create(conn.session, cls, device=device, name=cls.__name__, **kwargs)
@@ -113,7 +115,7 @@ class PingService(Service):
     @classmethod
     def update_status(cls, device, *args, **kwargs):
         try:
-            device.last_update = kwargs["last_update"] if "last_udpate" in kwargs else datetime.datetime.now()
+            device.last_update = kwargs["last_update"] if "last_update" in kwargs else datetime.datetime.now()
             device.status = kwargs['status']
 
             conn.session.add(device)
@@ -164,9 +166,13 @@ class DockerService(Service):
     def container_name(self, value):
         self.subname = value
 
+    @classmethod
+    def get_container_status(cls, device_id, container_name):
+        return conn.session.query(cls).filter_by(device_id=device_id, subname=container_name).order_by(desc(cls.last_update)).first()
+
     def _analyze_status(self, **kwargs):
         uptime_minutes = (datetime.datetime.now() - self.started_at).total_seconds() / 60
-        self._set_status(uptime_minutes >= 5)
+        self._set_status(uptime_minutes >= 6)
 
     def to_dict(self):
         ret = super().to_dict()
