@@ -4,7 +4,7 @@ from operator import and_
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index, desc, func
 from sqlalchemy.orm import relationship, with_polymorphic
 
-from . import conn, Base, get_or_create
+from . import conn, Base, get_or_create, logger
 
 
 class Service(Base):
@@ -54,10 +54,6 @@ class Service(Base):
     @classmethod
     def update_status(cls, device, *args, **kwargs):
         device.last_update = kwargs["last_update"] if "last_udpate" in kwargs else datetime.datetime.now()
-        if cls.__name__ == PingService.__name__:
-            if device.last_changed is None or device.status != kwargs['status']:
-                device.last_changed = datetime.datetime.now()
-            device.status = kwargs['status']
 
         try:
             service = get_or_create(conn.session, cls, device=device, name=cls.__name__, **kwargs)
@@ -65,24 +61,10 @@ class Service(Base):
                 service._analyze_status(**kwargs)
                 conn.session.add(device)
                 conn.session.commit()
-        except:
+        except Exception as e:
+            logger.error(f'Service | update_status | {e}')
             conn.session.rollback()
             raise
-
-        # finally:
-        #     conn.session.close()
-
-    @classmethod
-    def get_ping_status(cls, device_ip):
-        return conn.session.query(cls).filter_by(device_id=device_ip).order_by(desc(cls.last_update)).first()
-
-    # get_services_by_device(self.id)
-    # @classmethod
-    # def get_services_by_device(cls, device_id):
-    #     return conn.session.query(cls)\
-    #         .filter_by(device_id=device_id)\identifier.sqlite
-    #         .group_by(cls.name)\
-    #         .all()
 
     @classmethod
     def get_services_by_device(cls, device_id):
@@ -116,13 +98,41 @@ class Service(Base):
 
 class PingService(Service):
     __tablename__ = 'ping_services'
-    id = Column(Integer, ForeignKey('services.id',ondelete='CASCADE'), primary_key=True)
+    id = Column(Integer, ForeignKey('services.id', ondelete='CASCADE'), primary_key=True)
     response_time = Column(Integer, default=-1, nullable=False)
 
     __mapper_args__ = {
         "polymorphic_load": "inline",
         'polymorphic_identity': 'PingService'
     }
+
+    @classmethod
+    def get_ping_status(cls, device_id):
+        return conn.session.query(cls).filter_by(device_id=device_id).order_by(desc(cls.last_update)).first()
+
+    @classmethod
+    def update_status(cls, device, *args, **kwargs):
+        try:
+            device.last_update = kwargs["last_update"] if "last_udpate" in kwargs else datetime.datetime.now()
+            device.status = kwargs['status']
+
+            conn.session.add(device)
+            last_ping = cls.get_ping_status(device.id)
+            if last_ping is None or last_ping.status != kwargs['status']:
+                service = get_or_create(conn.session, cls, device=device, name=cls.__name__, **kwargs)
+                # with conn.session.begin():
+                service.last_changed = device.last_update
+                service._analyze_status(**kwargs)
+                conn.session.add(service)
+            else:
+                last_ping.last_update = device.last_update
+                last_ping.response_time = kwargs['response_time']
+
+            conn.session.commit()
+        except Exception as e:
+            logger.error(f'PingService | update_status | {e}')
+            conn.session.rollback()
+            raise
 
     def to_dict(self):
         ret = super().to_dict()
