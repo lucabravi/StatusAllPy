@@ -118,7 +118,7 @@
             deviceStatus.appendChild(statusButton);
 
             deviceRow.appendChild(deviceName);
-              if (services !== undefined) {
+            if (services !== undefined) {
                 deviceRow.appendChild(serviceStatus);
             }
             deviceRow.appendChild(deviceStatus);
@@ -133,7 +133,7 @@
             // Calcola il conteggio totale dei dispositivi online/offline
             for (var i = 0; i < groups.length; i++) {
                 var group = groups[i];
-                onlineCount += group.online;
+                onlineCount += parseInt(group.online);
                 offlineCount += group.count - group.online;
             }
 
