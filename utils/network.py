@@ -1,3 +1,5 @@
+import logging
+
 import netifaces
 
 
@@ -11,6 +13,7 @@ def get_ip_addresses():
             for ip in ipv4_addresses:
                 ip_address = ip['addr']
                 ip_list.append(ip_address)
+    logging.info(f'Current host ips: [{",".join(ip_list)}]')
     return ip_list
 
 # Usage
