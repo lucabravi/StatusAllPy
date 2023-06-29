@@ -33,17 +33,18 @@ def handle_container_data(data, ip_address):
             if curr_host_device is not None and curr_host_device.ip == ip_address:
                 device = curr_host_device
             else:
-                device = database.conn.query(database.Device).filter_by(ip=ip_address, group='SERVER').first()
+                device = database.conn.session.query(database.Device).filter_by(ip=ip_address, group='SERVER').first()
                 if device is None and not curr_host_checked:
                     if ip_address in curr_host_ips:
-                        check_curr_host = [database.conn.query(database.Device)
-                                           .filter_by(ip=ip_address, group='SERVER')
-                                           .first() for x in curr_host_ips if x == ip_address][0]
-                        check_curr_host = list(filter(None, check_curr_host))
+                        check_curr_host = [database.conn.session.query(database.Device)
+                                           .filter_by(ip=x, group='SERVER')
+                                           .first() for x in curr_host_ips]
+                        check_curr_host = [x for x in check_curr_host if x is not None]
                         if len(check_curr_host) > 0:
                             curr_host_device = check_curr_host[0]
                             curr_host_checked = True
-
+                        else:
+                            raise Exception(f'Received webhook container data from unkwnown device {ip_address}')
                     else:
                         raise Exception(f'Received webhook container data from unkwnown device {ip_address}')
 
