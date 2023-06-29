@@ -35,7 +35,7 @@ def init_db(app, echo=False):
 
 def get_or_create(session, model, **kwargs):
     instance = session.query(model).filter_by(**kwargs).first()
-    if instance:
+    if instance is not None:
         return instance
     else:
         instance = model(**kwargs)

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask
+from flask import Flask, g
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import database as db

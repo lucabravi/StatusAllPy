@@ -54,7 +54,6 @@ class Service(Base):
     @classmethod
     def update_status(cls, device, *args, **kwargs):
         last_update = kwargs.pop("last_update") if "last_update" in kwargs else datetime.datetime.now()
-
         device.last_update = last_update
 
         try:
@@ -148,6 +147,7 @@ class PingService(Service):
 class DockerService(Service):
     __tablename__ = 'docker_containers'
     id = Column(Integer, ForeignKey('services.id', ondelete='CASCADE'), primary_key=True)
+    running = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=True)
     started_at = Column(DateTime, nullable=True)
     image_id = Column(String(255), nullable=True)
@@ -168,11 +168,42 @@ class DockerService(Service):
 
     @classmethod
     def get_container_status(cls, device_id, container_name):
-        return conn.session.query(cls).filter_by(device_id=device_id, subname=container_name).order_by(desc(cls.last_update)).first()
+        return conn.session.query(cls).filter_by(device_id=device_id, subname=container_name).order_by(
+            desc(cls.last_update)).first()
+
+    @classmethod
+    def update_status(cls, device, *args, **kwargs):
+        try:
+            device.last_update = kwargs["last_update"] if "last_update" in kwargs else datetime.datetime.now()
+            conn.session.add(device)
+
+            last_update = cls.get_container_status(device.id, kwargs["container_name"])
+            if last_update is None or last_update.status != cls.analyze_raw_status(**kwargs):
+                service = get_or_create(conn.session, cls, device=device, name=cls.__name__, **kwargs)
+                # with conn.session.begin():
+                service.last_changed = device.last_update
+                service._analyze_status(**kwargs)
+                conn.session.add(service)
+            else:
+                last_update.last_update = device.last_update
+                for key, value in kwargs.items():
+                    setattr(last_update, key, value)
+
+            conn.session.commit()
+        except Exception as e:
+            logger.error(f'PingService | update_status | {e}')
+            conn.session.rollback()
+            raise
+
+    @classmethod
+    def analyze_raw_status(self, **kwargs):
+        running = kwargs['running']
+        uptime_minutes = (datetime.datetime.now() - kwargs['started_at']).total_seconds() / 60
+        return running and uptime_minutes >= 6
 
     def _analyze_status(self, **kwargs):
         uptime_minutes = (datetime.datetime.now() - self.started_at).total_seconds() / 60
-        self._set_status(uptime_minutes >= 6)
+        self._set_status(self.running and uptime_minutes >= 6)
 
     def to_dict(self):
         ret = super().to_dict()
