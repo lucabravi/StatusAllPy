@@ -1,4 +1,5 @@
 import distutils
+import os
 from distutils.util import strtobool
 
 import database
@@ -6,7 +7,9 @@ from . import *
 from utils import network
 
 curr_host_ips: list[str] = network.get_ip_addresses()
-curr_host_device: database.Device | None = None
+curr_host_device: database.Device | None = database.conn.session.query(database.Device).filter_by(ip=os.getenv('HOST_WEBHOOK_IP'), group='SERVER').first() \
+    if os.getenv('HOST_WEBHOOK_IP', None) is not None \
+    else None
 curr_host_checked: bool = False
 
 
